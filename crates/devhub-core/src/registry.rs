@@ -130,11 +130,11 @@ pub const KNOWN: &[KnownDevice] = &[
         driver: DriverKind::Mousefit,
         verified: false,
     },
-    // ---------------------------------------------------------------- キーボード (未対応)
-    // Wobkey Rainy 75 Pro の 2.4G ドングル "Telink Wireless Gaming Keyboard" (320f:5088)。
-    // if1 = FF60/61 (VIA raw HID 32B) だがドングル経由では VIA 応答なし (2026-11-18 実測)。
-    // 設定は if2 col04 FF1C/92 か col05 FFEF/00 (64B) の独自プロトコルと推定 — 未解析。
-    // サイドバーに「検出済み・未対応」と出すためだけに登録する。
+    // ---------------------------------------------------------------- キーボード (VIA)
+    // Wobkey Rainy 75 Pro 有線 (320f:5088、製品文字列は "Telink Wireless Gaming Keyboard")。
+    // if1 = FF60/61 の VIA raw HID 32B。2026-11-18 実機で protocol 0x000B・4 レイヤー・
+    // 6×16 マトリクスのキーマップ読み出しを確認 (via.rs)。書き込みは未検証。
+    // 2.4G ドングル経由では VIA が応答しない (別の独自プロトコル、未解析)。
     KnownDevice {
         vid: 0x320F,
         pid: 0x5088,
@@ -144,8 +144,8 @@ pub const KNOWN: &[KnownDevice] = &[
         vendor: "Wobkey",
         model: "rainy75-pro",
         name: "Rainy 75 Pro",
-        transport: Transport::Wireless24G,
-        driver: DriverKind::Unsupported,
+        transport: Transport::Wired,
+        driver: DriverKind::Via,
         verified: false,
     },
     // ---------------------------------------------------------------- USB DAC (peq.szwalkplay.com)

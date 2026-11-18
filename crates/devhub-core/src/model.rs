@@ -72,6 +72,8 @@ pub enum DriverKind {
     Atk,
     /// www.lamzu.net / Aurora 系 (64B feature report、if2 FFFF:00)。
     Lamzu,
+    /// VIA (QMK raw HID, usage page FF60/61, 32B)。Wobkey Rainy 75 Pro 有線など。
+    Via,
     /// 未割り当て (検出だけできる)。
     Unsupported,
 }
