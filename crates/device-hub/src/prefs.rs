@@ -38,6 +38,10 @@ pub struct Prefs {
     /// プロセス監視ルール (フォアグラウンド連動でプロファイルを適用)。
     #[serde(default)]
     pub proc_rules: Vec<ProcRule>,
+    /// 初回起動で自動起動 (HKCU Run) を登録済みか。以降はトレイメニューの
+    /// チェックだけが正 — ユーザーが外したら勝手に戻さない。
+    #[serde(default)]
+    pub autostart_init: bool,
 }
 
 /// 設定プロファイル — 録画した `Change` を順に再生して適用する。
@@ -140,6 +144,7 @@ impl Default for Prefs {
             livefx: Default::default(),
             profiles: vec![],
             proc_rules: vec![],
+            autostart_init: false,
         }
     }
 }

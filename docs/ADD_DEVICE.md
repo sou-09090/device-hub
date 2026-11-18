@@ -15,6 +15,8 @@
 | HTS Plus Pro (有線) | 33E4:5219 | FF02 / 02 | Mousefit → `mousefit8.rs` (report-8/EEPROM) | www.mouse.fit | **v2 実機検証済** (有線でも feature report は使えず report-8) |
 | HTX Ultra | 33E4:5608, 5617, 5618, 5619 | FF02 / 02 (推定) | Mousefit | www.mouse.fit | 機種表から登録 / 未検証 |
 | ATK F1 Ultimate | 未確定 | 未確定 | 未確定 | (mouse.fit の機種表に無い) | §7 を参照 |
+| LAMZU Atlantis V2 (無線) | "LAMZU Pro 1K Receiver" 3554:F50D (Compx) | FF02 / 02 (if1 col05, 17B) | Mousefit → `mousefit8.rs` (model `lamzu-atlantis-v2`) | lamzu.net (3554 経路) | **読み出しのみ実機確認** (2026-11-18: 電池・FW・EID=1・ポーリング・DPI 5段・色・ボタン5・デバウンス・MS/角度/リップル・スリープ)。@189 以降と op23 は未対応 → caps で非表示。書き込みは未検証 |
+| Rainy 75 Pro (無線) | Telink ドングル 320F:5088 | FF60 / 61 (VIA) は無応答、FF1C/92・FFEF/00 (64B) が候補 | 未対応 (registry のみ) | Wobkey 公式 | 検出のみ。有線 VIA か 2.4G 独自プロトコルの解析待ち |
 
 **接続方式でプロトコルが変わる点に注意**: mouse.fit の新プロトコル (64B feature report) は
 有線機種専用 — 8K ドングルは Windows の feature report を一切持たず、ドングル経由は

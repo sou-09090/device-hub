@@ -114,6 +114,40 @@ pub const KNOWN: &[KnownDevice] = &[
         Transport::Wired,
         false,
     ),
+    // LAMZU Atlantis V2 + "LAMZU Pro 1K Receiver" (Compx 3554:f50d, if1 col05 = FF02/02,
+    // in/out 17B)。HTS Plus Pro ドングルと同じ report-8/EEPROM を中継するので
+    // mousefit8 で開く (2026-11-18 実機で読み出し確認。書き込みは未検証)。
+    KnownDevice {
+        vid: 0x3554,
+        pid: 0xF50D,
+        usage_page: Some(0xFF02),
+        usage: Some(0x02),
+        kind: DeviceKind::Mouse,
+        vendor: "LAMZU",
+        model: "lamzu-atlantis-v2",
+        name: "LAMZU Atlantis V2",
+        transport: Transport::Wireless24G,
+        driver: DriverKind::Mousefit,
+        verified: false,
+    },
+    // ---------------------------------------------------------------- キーボード (未対応)
+    // Wobkey Rainy 75 Pro の 2.4G ドングル "Telink Wireless Gaming Keyboard" (320f:5088)。
+    // if1 = FF60/61 (VIA raw HID 32B) だがドングル経由では VIA 応答なし (2026-11-18 実測)。
+    // 設定は if2 col04 FF1C/92 か col05 FFEF/00 (64B) の独自プロトコルと推定 — 未解析。
+    // サイドバーに「検出済み・未対応」と出すためだけに登録する。
+    KnownDevice {
+        vid: 0x320F,
+        pid: 0x5088,
+        usage_page: Some(0xFF60),
+        usage: Some(0x61),
+        kind: DeviceKind::Keyboard,
+        vendor: "Wobkey",
+        model: "rainy75-pro",
+        name: "Rainy 75 Pro",
+        transport: Transport::Wireless24G,
+        driver: DriverKind::Unsupported,
+        verified: false,
+    },
     // ---------------------------------------------------------------- USB DAC (peq.szwalkplay.com)
     // TP55 — 実機列挙: 3302:4383 if=0 up=000C u=01 "TP55"。
     // 設定は consumer control IF 上の report 0x4B (CB 系 S1 プロトコル)。

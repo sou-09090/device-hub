@@ -26,5 +26,6 @@ pub mod procmon;
 pub use devhub_obs::rawinput;
 pub mod store;
 pub mod theme;
+pub mod tray;
 pub mod ui;
 pub mod wallpaper;

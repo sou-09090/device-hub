@@ -112,7 +112,23 @@ pub struct R8Model {
     pub profiles: u8,
     /// mouse.fit の Config フォルダ名 (FWLINK.txt → ファーム更新通知)。
     pub ui_folder: &'static str,
+    /// 選べるポーリングレート (Hz)。受信機の上限で絞る (1K 受信機は 125–1000)。
+    pub polling: &'static [(i64, &'static str)],
+    /// EEPROM の拡張領域 (@189 以降: Sensor FPS 20K / ホイール・解放デバウンス /
+    /// AngleTune) を持つか。Compx 1K 受信機の旧世代は @189 以降が未書込 (0xFF)。
+    pub ext_eeprom: bool,
 }
+
+const POLL_8K: &[(i64, &str)] = &[
+    (125, "125"),
+    (250, "250"),
+    (500, "500"),
+    (1000, "1K"),
+    (2000, "2K"),
+    (4000, "4K"),
+    (8000, "8K"),
+];
+const POLL_1K: &[(i64, &str)] = &[(125, "125"), (250, "250"), (500, "500"), (1000, "1K")];
 
 const LOD_JM: &[(i64, &str)] = &[
     (7, "0.7mm"),
@@ -138,6 +154,8 @@ const HTS_PLUS_PRO: R8Model = R8Model {
     btn_num: 5,
     profiles: 1,
     ui_folder: "JM_052_3955",
+    polling: POLL_8K,
+    ext_eeprom: true,
 };
 /// HTX Ultra 初代 (GW_056, XVI=1)。公式は feature-report (cm) 経路のため
 /// report-8 での設定経路は未検証 — 出している行は env の Enable フラグに絞る。
@@ -155,6 +173,8 @@ const HTX_ULTRA: R8Model = R8Model {
     btn_num: 5,
     profiles: 1,
     ui_folder: "GW_056",
+    polling: POLL_8K,
+    ext_eeprom: true,
 };
 /// HTX Ultra 3950 (JM_056_3950, PIDWired=5618)。Die/report-8 実機検証済み。
 /// SPDT @8 bit0/1、LOD wire {0.7→3, 1→1, 2→2} は公式 JS の write マップそのまま。
@@ -172,6 +192,8 @@ const HTX_ULTRA_3950: R8Model = R8Model {
     btn_num: 5,
     profiles: 1,
     ui_folder: "JM_056_3950",
+    polling: POLL_8K,
+    ext_eeprom: true,
 };
 /// HTX Ultra 3955 (JM_056_3955, PIDWired=5619)。未接続 — env フラグから構成。
 const HTX_ULTRA_3955: R8Model = R8Model {
@@ -188,10 +210,38 @@ const HTX_ULTRA_3955: R8Model = R8Model {
     btn_num: 5,
     profiles: 1,
     ui_folder: "JM_056_3955",
+    polling: POLL_8K,
+    ext_eeprom: true,
+};
+
+/// LAMZU Atlantis V2 + "LAMZU Pro 1K Receiver" (3554:f50d, Compx)。
+/// 受信機は HTS Plus Pro と同じ Die/report-8 + EEPROM (sum≡0x55) を中継する —
+/// 2026-11-18 実機で読み出しのみ確認: op4 電池 / op18 FW 1.24 / op1 EID=1 /
+/// @0 rate=1(1K) / @2 stage=5 / @12 4B×5 (400..6400, step50) / @44 色 /
+/// @96 ボタン 5 / @169 debounce=4 / @171 motion sync / @173 sleep=6 /
+/// @175 angle / @177 ripple / @189 以降は 0xFF (未対応) / op23 全 0 (長距離なし)。
+/// PAW3395 → 上限 26000。LOD は 1mm/2mm (wire 1/2、現在値 1)。
+const LAMZU_ATLANTIS_V2: R8Model = R8Model {
+    sensor_3955: false,
+    dpi_max: 26_000,
+    max_stages: 5,
+    lod_choices: &[(10, "1.0mm"), (20, "2.0mm")],
+    lod_wire: &[1, 2],
+    debounce_max: 20,
+    magnetic: false,
+    spdt: false,
+    long_range: false,
+    sensor_angle: false,
+    btn_num: 5,
+    profiles: 1,
+    ui_folder: "",
+    polling: POLL_1K,
+    ext_eeprom: false,
 };
 
 fn model_for(model: &str) -> &'static R8Model {
     match model {
+        "lamzu-atlantis-v2" => &LAMZU_ATLANTIS_V2,
         "htx-ultra" => &HTX_ULTRA,
         "htx-ultra-3950" => &HTX_ULTRA_3950,
         "htx-ultra-3955" => &HTX_ULTRA_3955,
@@ -285,14 +335,15 @@ impl MfDongleDriver {
     /// model/caps/info を更新して `HubEvent::Info` で UI に知らせる。
     /// EID=0 (休眠) なら未確定のまま次回に再試行する。
     fn maybe_detect(&self) {
+        // EID→機種の表は mouse.fit (G-Wolves, VID 33E4) の MID 空間。
+        // 他社の Compx 受信機 (LAMZU 3554 等) は同じ番号でも別機種なので照合しない。
+        let (transport, vid) = {
+            let i = self.sh.info.lock().unwrap_or_else(|p| p.into_inner());
+            (i.transport, i.vid)
+        };
         if self.detected.load(Ordering::Relaxed)
-            || self
-                .sh
-                .info
-                .lock()
-                .unwrap_or_else(|p| p.into_inner())
-                .transport
-                != Transport::Wireless24G
+            || transport != Transport::Wireless24G
+            || vid != 0x33E4
         {
             return;
         }
@@ -1219,33 +1270,31 @@ fn build_caps(info: &DeviceInfo, m: &R8Model) -> Capabilities {
             } else {
                 "ポーリングレート (無線)"
             },
-            opts(&[
-                (125, "125"),
-                (250, "250"),
-                (500, "500"),
-                (1000, "1K"),
-                (2000, "2K"),
-                (4000, "4K"),
-                (8000, "8K"),
-            ]),
+            opts(m.polling),
         )
         .help("マウス→レシーバー間の報告頻度 (Hz)"),
-        SettingSpec::toggle("competitive", PERFORMANCE, "競技モード")
-            .help("センサーを常時最高性能で動かします (Sensor FPS 20K)"),
+    ];
+    if m.ext_eeprom {
+        settings.push(
+            SettingSpec::toggle("competitive", PERFORMANCE, "競技モード")
+                .help("センサーを常時最高性能で動かします (Sensor FPS 20K)"),
+        );
+    }
+    settings.extend([
         SettingSpec::choice("lod", SENSOR, "リフトオフ距離", opts(m.lod_choices))
             .help("マウスを持ち上げたとき反応しなくなる高さ"),
         SettingSpec::toggle("motion_sync", SENSOR, "モーション同期")
             .help("ポインタとマウスの動きを同期させ、軌跡を滑らかにします"),
         SettingSpec::toggle("angle_snap", SENSOR, "直線補正").help("移動のブレを直線に補正します"),
         SettingSpec::toggle("ripple", SENSOR, "リップル制御").help("高DPI時の細かい揺れを抑えます"),
-    ];
+    ]);
     if m.sensor_angle {
         settings.push(
             SettingSpec::slider("sensor_angle", SENSOR, "センサー角度", -30., 30., 1., "°")
                 .help("持ち方に合わせて座標軸を回転させます"),
         );
     }
-    settings.extend([
+    settings.push(
         SettingSpec::slider(
             "debounce_press",
             CLICK,
@@ -1257,25 +1306,29 @@ fn build_caps(info: &DeviceInfo, m: &R8Model) -> Capabilities {
         )
         .help("短くすると反応が速く、長くすると誤クリックを防ぎます")
         .confirm("0ms にするとダブルクリックが発生する場合があります。続けますか?"),
-        SettingSpec::slider(
-            "debounce_release",
-            CLICK,
-            "クリックデバウンス (解放)",
-            0.,
-            m.debounce_max as f32,
-            1.,
-            "ms",
-        ),
-        SettingSpec::slider(
-            "wheel_debounce",
-            CLICK,
-            "ホイールデバウンス",
-            0.,
-            245.,
-            5.,
-            "ms",
-        ),
-    ]);
+    );
+    if m.ext_eeprom {
+        settings.extend([
+            SettingSpec::slider(
+                "debounce_release",
+                CLICK,
+                "クリックデバウンス (解放)",
+                0.,
+                m.debounce_max as f32,
+                1.,
+                "ms",
+            ),
+            SettingSpec::slider(
+                "wheel_debounce",
+                CLICK,
+                "ホイールデバウンス",
+                0.,
+                245.,
+                5.,
+                "ms",
+            ),
+        ]);
+    }
     if m.magnetic {
         settings.extend([
             // 公式 UI は 1-20 表示 (EEPROM には表示値-1 を書く)。
@@ -1396,7 +1449,8 @@ fn build_caps(info: &DeviceInfo, m: &R8Model) -> Capabilities {
         lighting: vec![],
         battery: true,
         peq: None,
-        firmware_feed: Some(FirmwareFeed::MouseFit {
+        // mouse.fit の配布フォルダを持たない機種 (他社 Compx 受信機) は更新通知なし。
+        firmware_feed: (!m.ui_folder.is_empty()).then(|| FirmwareFeed::MouseFit {
             ui_folder: m.ui_folder.into(),
         }),
     }
